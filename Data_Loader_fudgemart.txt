@@ -1,0 +1,280 @@
+ -- RAW.CONFORMED.DATEDIMENSIONRAW.CONFORMED.DATEDIMENSION 
+-- create databases 
+create database if not exists analytics; 
+create database if not exists raw; 
+ 
+--create schemas 
+create schema if not exists analytics.fudgeenterprise; 
+create schema if not exists raw.conformed; 
+create schema if not exists raw.fudgemart; 
+create schema if not exists raw.fudgeflix; 
+ 
+-- define file formats 
+create or replace file format RAW.PUBLIC.PARQUET  
+    TYPE = parquet 
+    REPLACE_INVALID_CHARACTERS = TRUE; 
+ 
+create or replace file format RAW.PUBLIC.JSONARRAY  
+    TYPE = json 
+    STRIP_OUTER_ARRAY = TRUE; 
+ 
+create or replace file format RAW.PUBLIC.JSON 
+    TYPE = json 
+    STRIP_OUTER_ARRAY = FALSE; 
+ 
+create or replace file format RAW.PUBLIC.CSVHEADER 
+    TYPE = 'csv' 
+    FIELD_DELIMITER  = ',' 
+    SKIP_HEADER=1; 
+     
+create or replace file format RAW.PUBLIC.CSV 
+    TYPE = csv 
+    FIELD_DELIMITER  = ',' 
+    PARSE_HEADER = FALSE 
+    SKIP_HEADER  = 0;   
+ 
+ 
+-- create stages 
+-- varying file formats 
+CREATE or replace STAGE RAW.PUBLIC.externalworld_files 
+  URL = 'azure://externalworld.blob.core.windows.net/files/'; 
+ 
+-- these are all parquet file formats 
+CREATE or replace STAGE RAW.PUBLIC.externalworld_database 
+  URL = 'azure://externalworld.blob.core.windows.net/database/' 
+  FILE_FORMAT = RAW.PUBLIC.PARQUET ; 
+ 
+ 
+-- stage the date dimension 
+CREATE or REPLACE TABLE raw.conformed.datedimension ( 
+    datekey int ,
+    date date ,
+    datetime timestamp,
+    year int ,
+    quarter int 
+    ,quartername varchar(2) 
+    ,month int 
+    ,monthname varchar(3) 
+    ,day int 
+    ,dayofweek int 
+    ,dayname varchar(3) 
+    ,weekday varchar(1) 
+    ,weekofyear int 
+    ,dayofyear int 
+) AS 
+    WITH CTE_MY_DATE AS ( 
+    SELECT DATEADD(DAY, SEQ4(), '2007-01-01 00:00:00') AS MY_DATE 
+    FROM TABLE(GENERATOR(ROWCOUNT=>365*30)) 
+    ) 
+    SELECT 
+    REPLACE(TO_DATE(MY_DATE)::varchar,'-','')::int  as datekey, 
+    TO_DATE(MY_DATE) as date 
+    ,TO_TIMESTAMP(MY_DATE) as datetime 
+    ,YEAR(MY_DATE) as year 
+    ,QUARTER(MY_DATE) as quarter 
+    ,CONCAT('Q', QUARTER(MY_DATE)::varchar) as quartername 
+    ,MONTH(MY_DATE) as month 
+    ,MONTHNAME(MY_DATE) as monthname 
+    ,DAY(MY_DATE) as day 
+    ,DAYOFWEEK(MY_DATE) as dayofweek 
+    ,DAYNAME(MY_DATE) as dayname 
+    ,case when DAYOFWEEK(MY_DATE) between 1 and 5 then 'Y' else 'N' end as weekday 
+    ,WEEKOFYEAR(MY_DATE) as weekofyear 
+    ,DAYOFYEAR(MY_DATE) as dayofyear 
+    FROM CTE_MY_DATE 
+    ; 
+ 
+ 
+-- stage the fudemart-tweets. 
+create or replace table RAW.FUDGEMART.fudgemart_tweets 
+( 
+    user varchar, 
+    created_at_unixtime int, 
+    id int, 
+    text varchar, 
+    created_at varchar 
+); 
+copy into RAW.FUDGEMART.fudgemart_tweets 
+    from '@RAW.PUBLIC.externalworld_files/fudgemart.fudemart-tweets.json' 
+        file_format=RAW.PUBLIC.JSONARRAY 
+        MATCH_BY_COLUMN_NAME= CASE_INSENSITIVE; 
+ 
+-- stage the customer survey 
+create or replace table RAW.FUDGEMART.fudgemart_customer_survey 
+( 
+    email varchar, 
+    twitter_username varchar, 
+    martial_status varchar, 
+    income varchar, 
+    own_house varchar, 
+    education varchar, 
+    favorite_department varchar 
+); 
+copy into RAW.FUDGEMART.fudgemart_customer_survey 
+    (email,twitter_username,martial_status,income,own_house,education,favorite_department) 
+    from '@RAW.PUBLIC.externalworld_files/fudgemart.fudgemart_customer_survey.csv' 
+        file_format=RAW.PUBLIC.CSV; 
+         
+ 
+-- stage fudgemart customers  
+create or replace table RAW.FUDGEMART.fm_customers 
+( 
+    customer_id int, 
+    customer_email varchar, 
+    customer_firstname varchar, 
+    customer_lastname varchar, 
+    customer_address varchar, 
+    customer_city varchar, 
+    customer_state varchar, 
+    customer_zip varchar, 
+    customer_phone varchar, 
+    customer_fax varchar 
+); 
+copy into RAW.FUDGEMART.fm_customers 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_customers.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+ 
+-- stage fudgemart employees 
+create or replace table RAW.FUDGEMART.fm_employees 
+( 
+    employee_id int, 
+    employee_ssn int, 
+    employee_lastname varchar, 
+    employee_firstname varchar, 
+    employee_jobtitle varchar, 
+    employee_department varchar, 
+    employee_hiredate varchar, 
+    employee_termdate varchar, 
+    employee_hourlywage int, 
+    employee_fulltime int, 
+    employee_supervisor_id int 
+); 
+
+copy into RAW.FUDGEMART.fm_employees 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_employees.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+ 
+ 
+-- stage fudgemart products 
+create or replace table RAW.FUDGEMART.fm_products 
+( 
+    product_id int, 
+    product_department varchar, 
+    product_name varchar, 
+    product_retail_price double, 
+    product_wholesale_price double, 
+    product_is_active varchar, 
+    product_add_date varchar, 
+    product_vendor_id int, 
+    product_description varchar 
+); 
+copy into RAW.FUDGEMART.fm_products 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_products.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+     
+-- stage fudgemart orders 
+create or replace table RAW.FUDGEMART.fm_orders 
+( 
+    order_id int, 
+    customer_id int, 
+    order_date varchar, 
+    shippeddate varchar, 
+    ship_via varchar, 
+    cerditcard_id int    
+); 
+copy into RAW.FUDGEMART.fm_orders 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_orders.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+ 
+-- stage fudgemart vendors 
+create or replace table RAW.FUDGEMART.fm_vendors 
+( 
+    vendor_id int, 
+    vendor_name varchar, 
+    vendor_phone varchar, 
+    vendor_website varchar 
+); 
+copy into RAW.FUDGEMART.fm_vendors 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_vendors.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+ 
+ 
+-- stage fudgemart creditcards 
+create or replace table RAW.FUDGEMART.fm_creditcards 
+( 
+    creditcard_id int, 
+    creditcard_number varchar, 
+    creditcard_exp_date varchar 
+); 
+copy into RAW.FUDGEMART.fm_creditcards 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_creditcards.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+ 
+-- stage fudgemart orderdetails 
+create or replace table RAW.FUDGEMART.fm_order_details 
+( 
+    order_id int, 
+    product_id int, 
+    order_qty int 
+); 
+copy into RAW.FUDGEMART.fm_order_details 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_order_details.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+ 
+-- stage fudgemart customer product review 
+create or replace table RAW.FUDGEMART.fm_customer_product_reviews 
+( 
+    customer_id int, 
+    product_id int, 
+    review_date varchar, 
+    review_stars double 
+); 
+copy into RAW.FUDGEMART.fm_customer_product_reviews 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_customer_product_reviews.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+ 
+-- stage fudgemart shipvia lookup 
+create or replace table RAW.FUDGEMART.fm_shipvia_lookup 
+( 
+  ship_via varchar 
+); 
+copy into RAW.FUDGEMART.fm_shipvia_lookup 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_shipvia_lookup.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+ 
+-- stage fudgemart jobtitles lookup 
+create or replace table RAW.FUDGEMART.fm_jobtitles_lookup 
+( 
+  jobtitle_id varchar 
+); 
+copy into RAW.FUDGEMART.fm_jobtitles_lookup 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_jobtitles_lookup.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+ 
+-- stage fudgemart department lookup 
+create or replace table RAW.FUDGEMART.fm_departments_lookup 
+( 
+  department_id varchar 
+); 
+copy into RAW.FUDGEMART.fm_departments_lookup 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_departments_lookup.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+ 
+-- stage fudgemart customer creditcards 
+create or replace table RAW.FUDGEMART.fm_customer_creditcards 
+( 
+  customer_id int, 
+  creditcard_id int 
+); 
+copy into RAW.FUDGEMART.fm_customer_creditcards 
+    FROM '@RAW.PUBLIC.externalworld_database/fudgemart_v3.fm_customer_creditcards.parquet'  
+    MATCH_BY_COLUMN_NAME='CASE_INSENSITIVE'; 
+ 
+------------------------------------------------------------------- 
+ 
+ 
+select TABLE_CATALOG,TABLE_SCHEMA,TABLE_NAME,ROW_COUNT  
+    from RAW.INFORMATION_SCHEMA.TABLES 
+    where TABLE_SCHEMA='FUDGEMART' order by TABLE_NAME; 
+ 
+ 

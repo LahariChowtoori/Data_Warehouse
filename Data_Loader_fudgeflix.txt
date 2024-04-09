@@ -1,0 +1,151 @@
+
+
+-- Create the ff_account_billing table
+CREATE OR REPLACE TABLE RAW.FUDGEFLIX.ff_account_billing (
+    ab_id INT,
+    ab_date DATETIME,
+    ab_account_id INT,
+    ab_plan_id INT,
+    ab_billed_amount VARCHAR
+);
+
+-- Create the ff_account_titles table
+CREATE OR REPLACE TABLE RAW.FUDGEFLIX.ff_account_titles (
+    at_id INT,
+    at_account_id INT,
+    at_title_id VARCHAR,
+    at_queue_date VARCHAR,  
+    at_shipped_date VARCHAR,
+    at_returned_date VARCHAR,
+    at_rating INT
+);
+
+-- Create the ff_accounts table
+CREATE OR REPLACE TABLE RAW.FUDGEFLIX.ff_accounts (
+    account_id INT,
+    account_email VARCHAR,
+    account_firstname VARCHAR,
+    account_lastname VARCHAR,
+    account_address VARCHAR,
+    account_zipcode VARCHAR,
+    account_plan_id INT,
+    account_opened_on VARCHAR
+);
+
+-- Create the ff_cast table
+CREATE OR REPLACE TABLE RAW.FUDGEFLIX.ff_cast (
+    cast_people_id INT,
+    cast_title_id VARCHAR
+);
+
+-- Create the ff_directors tableRAW.FUDGEMART.FM_CREDITCARDS
+CREATE OR REPLACE TABLE RAW.FUDGEFLIX.ff_directors (
+    director_people_id INT,
+    director_title_id VARCHAR
+);
+
+-- Create the ff_genres table
+CREATE OR REPLACE TABLE RAW.FUDGEFLIX.ff_genres (
+    genre_name VARCHAR
+);
+
+-- Create the ff_people table
+CREATE OR REPLACE TABLE RAW.FUDGEFLIX.ff_people (
+    people_id INT,
+    people_name VARCHAR
+);
+
+-- Create the ff_plans table
+CREATE OR REPLACE TABLE RAW.FUDGEFLIX.ff_plans (
+    plan_id INT,
+    plan_name VARCHAR,
+    plan_price VARCHAR,
+    plan_current BOOLEAN
+);
+
+-- Create the ff_title_genres table
+CREATE OR REPLACE TABLE RAW.FUDGEFLIX.ff_title_genres (
+    tg_genre_name VARCHAR,
+    tg_title_id VARCHAR
+);
+
+-- Create the ff_titles table
+CREATE OR REPLACE TABLE RAW.FUDGEFLIX.ff_titles (
+    title_id VARCHAR,
+    title_name VARCHAR,
+    title_type VARCHAR,
+    title_synopsis VARCHAR,
+    title_avg_rating DECIMAL,
+    title_release_year INT,
+    title_runtime INT,
+    title_rating VARCHAR,
+    title_bluray_available BOOLEAN,
+    title_dvd_available BOOLEAN,
+    title_instant_available BOOLEAN,
+    title_date_modified VARCHAR
+);
+
+-- Create the ff_zipcodes table
+CREATE OR REPLACE TABLE RAW.FUDGEFLIX.ff_zipcodes (
+    zip_code VARCHAR,
+    zip_city VARCHAR,
+    zip_state VARCHAR
+);
+
+-- Load data for ff_account_billing table
+COPY INTO RAW.FUDGEFLIX.ff_account_billing
+FROM '@RAW.PUBLIC.externalworld_database/fudgeflix_v3.ff_account_billing.parquet'
+MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE;
+
+-- Load data for ff_account_titles table
+COPY INTO RAW.FUDGEFLIX.ff_account_titles
+FROM '@RAW.PUBLIC.externalworld_database/fudgeflix_v3.ff_account_titles.parquet'
+MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE;
+
+-- Load data for ff_accounts table
+COPY INTO RAW.FUDGEFLIX.ff_accounts
+FROM '@RAW.PUBLIC.externalworld_database/fudgeflix_v3.ff_accounts.parquet'
+MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE;
+
+-- Load data for ff_cast table
+COPY INTO RAW.FUDGEFLIX.ff_cast
+FROM '@RAW.PUBLIC.externalworld_database/fudgeflix_v3.ff_cast.parquet'
+MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE;
+
+-- Load data for ff_directors table
+COPY INTO RAW.FUDGEFLIX.ff_directors
+FROM '@RAW.PUBLIC.externalworld_database/fudgeflix_v3.ff_directors.parquet'
+MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE;
+
+-- Load data for ff_genres table
+COPY INTO RAW.FUDGEFLIX.ff_genres
+FROM '@RAW.PUBLIC.externalworld_database/fudgeflix_v3.ff_genres.parquet'
+MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE;
+
+-- Load data for ff_people table
+COPY INTO RAW.FUDGEFLIX.ff_people
+FROM '@RAW.PUBLIC.externalworld_database/fudgeflix_v3.ff_people.parquet'
+MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE;
+
+-- Load data for ff_plans table
+COPY INTO RAW.FUDGEFLIX.ff_plans
+FROM '@RAW.PUBLIC.externalworld_database/fudgeflix_v3.ff_plans.parquet'
+MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE;
+
+-- Load data for ff_title_genres table
+COPY INTO RAW.FUDGEFLIX.ff_title_genres
+FROM '@RAW.PUBLIC.externalworld_database/fudgeflix_v3.ff_title_genres.parquet'
+MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE;
+
+-- Load data for ff_titles table
+COPY INTO RAW.FUDGEFLIX.ff_titles
+FROM '@RAW.PUBLIC.externalworld_database/fudgeflix_v3.ff_titles.parquet'
+MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE;
+
+-- Load data for ff_zipcodes table
+COPY INTO RAW.FUDGEFLIX.ff_zipcodes
+FROM '@RAW.PUBLIC.externalworld_database/fudgeflix_v3.ff_zipcodes.parquet'
+MATCH_BY_COLUMN_NAME=CASE_INSENSITIVE;
+
+
+select * from ff_title_genres
